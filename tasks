@@ -1,0 +1,39 @@
+Tasks:
+
+1 - When the user refreshes the browser, the game returns the same state it was in previously (it doesn’t restart the game)
+
+2 - Each player has a primary grid, on which their boats are placed.
+
+3 - Each player has a tracking grid, representing their opponent's grid. The tracking grid begins the game empty.
+
+4 - The players take alternating turns. On a player's turn, the player guesses a grid square. If that grid square on the opponent's board is occupied by a boat, the opponent announces "hit". If all of the tiles of a boat have been hit, the opponent announces "sunk" and the name of the boat. If the grid square does not contain a boat tile, the opponent announces "miss". Both players mark the result, the player on their tracking grid, and the opponent on their primary grid.
+
+5 - Grid should be of size 8x8
+
+6 - “L” shape (3 tall, 2 wide at boot), block (2x2), and two lines (4x1)
+
+7 - It should have a lobby with a start button to start the game
+
+8 - The boats are randomly placed on the grid to start.
+
+9 - Each boat is placed in a random orientation. Boats may be adjacent to one another, but must not overlap.
+
+10 - During a turn, the player sees their own grid and their opponent's grid.
+
+11 - On their own grid, the player must see their own boats and the other player's previous guesses. A "hit" should look different from a "miss".
+
+12 - On their opponent's grid, the player must see their own previous guesses. A "hit" should look different from a "miss". The player must not see the opponent's boat tiles that have not been hit.
+
+13 - There should be a UI component to switch between players (ie. Player 2’s turn next, with a button to confirm start)
+
+14 - While switching between players, do not show either player's boats.
+
+15 - A move should involve firing a shot by clicking on other player’s grid, and if on a boat, hitting it
+
+16 - A boat is considered to be "sunk" if all of its boat tiles have been hit
+
+17 - The player who fired the shot should be informed if a shot hits or misses, and also should be informed if they have sunk a boat, and if so, what boat has been sunk
+
+18 - The game should have a reset button to restart to the “lobby” state (beginning of game with no state)
+
+19 - The game should switch to an end state if one team loses all their boats. The end game state should show who won, total shots fired, boats sunk for both players, and include a restart button

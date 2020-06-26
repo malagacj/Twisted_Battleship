@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang=en>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="grid_style.css">
+    <title>Battleship with a twist</title>
+    <style>
+    </style>
+  </head>
+  <body>
+    <div id="battleship">
+      <board v-for="board in boards"
+             :key=board.board_id
+             v-bind:b_id="board.board_id"
+             v-bind:b_data="board.board_data"
+             @clicked="clicked_box"
+      >
+      </board>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
