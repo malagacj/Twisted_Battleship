@@ -1,61 +1,120 @@
-<html lang=en>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="author" content="Froylan Malaga">
+    <title>Twisted Battleship</title>
+
+    <!-- Bootstrap -->
     <link rel="stylesheet" href="grid_style.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
-    <title>Battleship with a twist</title>
+
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+    </style>
   </head>
+
   <body>
+    <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+      <h1 class="display-4">Twisted Battleship</h1>
+    </div>
+
     <div class="container" id="battleship">
-      <div class="row justify-content-center">
-        <div class="col-4">
-          <lobby @start_game="reset_game"
-                 v-bind:started_game="game.started_game">
-          </lobby>
-        </div>
-      </div>
+      <div class="container text-center">
+        <p>
+          <button v-if="game.initiated" @click="reset_game" type="button" class="btn btn-danger">
+            Reset Game
+          </button>
 
-      <div class="row justify-content-between" v-show="game.started_game">
-        <div class="col-4" v-show="game.display_boards">
-          <div class="alert alert-primary" role="alert">{{ game.news }}</div>
-        </div>
+          <button v-else @click="reset_game" type="button" class="btn btn-primary">
+            Start Game
+          </button>
 
-        <div class="col-4" v-show="game.display_boards">
-          <button @click="transition" v-show="game.attacker == 0" type="button" class="btn btn-primary">
+          <button v-show="game.initiated && !game.display_boards"
+                  @click="show_boards"
+                  type="button"
+                  class="btn btn-success">
+            Continue
+          </button>
+
+          <button @click="transition"
+            v-show=" game.attacker == 0 && game.initiated && !game.ended && game.display_boards"
+            type="button"
+            class="btn btn-primary">
             Player2's turn
           </button>
-          <button @click="transition" v-show="game.attacker == 1" type="button" class="btn btn-primary">
-            Player1's turn
+
+          <button @click="transition"
+            v-show=" game.attacker == 1 && game.initiated && !game.ended && game.display_boards"
+            type="button"
+            class="btn btn-primary">
+            Player2's turn
           </button>
-        </div>
+        </p>
       </div>
 
-      <div v-show="game.started_game && !game.display_boards" class="row justify-content-center">
-        <div class="col-4">
-          <div>
-            <button @click="show_boards" type="button" class="btn btn-primary">Continue</button>
+      <div class="container text-center" v-show="game.initiated && !game.ended && game.display_boards">
+        <p>
+          <div class="alert alert-primary" role="alert">{{ game.news }}</div>
+        </p>
+      </div>
+
+
+      <div class="card-deck mb-3 text-center">
+        <div v-for="board in game.boards"
+             v-show="game.initiated && !game.ended && game.display_boards"
+             class="card mb-4 shadow-sm">
+          <div class="card-header">
+            <h4 v-show="board.id == 0" class="my-0 font-weight-normal">Player 1</h4>
+            <h4 v-show="board.id == 1" class="my-0 font-weight-normal">Player 2</h4>
+          </div>
+          <div class="card-body">
+            <board :key=board.id
+                   v-bind:b_id="board.id"
+                   v-bind:b_data="board.data"
+                   v-bind:attacker="game.attacker"
+                   v-bind:turn_taken="board.turn_taken"
+                   v-bind:display_boards="game.display_boards"
+                   @click_event="clicked_box"
+              >
+            </board>
           </div>
         </div>
       </div>
 
-      <div class="row justify-content-center" v-show="game.started_game">
-        <board v-for="board in game.boards"
-               v-show="game.display_boards"
-               :key=board.id
-               v-bind:b_id="board.id"
-               v-bind:b_data="board.data"
-               v-bind:attacker="game.attacker"
-               v-bind:turn_taken="board.turn_taken"
-               v-bind:display_boards="game.display_boards"
-               @click_event="clicked_box"
-          >
-        </board>
-      </div>
-
-      <div class="container" v-show="game.game_ended">
-        <h2>Player1</h2>
-        <h2>Player2</h2>
+      <div class="card-deck mb-3 text-center">
+        <div v-for="board in game.boards"
+             v-show="game.ended"
+             class="card mb-4 shadow-sm">
+          <div class="card-header">
+            <h4 v-show="board.id == 0" class="my-0 font-weight-normal">Player 1</h4>
+            <h4 v-show="board.id == 1" class="my-0 font-weight-normal">Player 2</h4>
+          </div>
+          <div class="card-body">
+            <h1 v-show="game.attacker == board.id"class="card-title pricing-card-title">WINNER!</h1>
+            <h1 v-show="game.attacker != board.id"class="card-title pricing-card-title">YOU LOSE</h1>
+            <ul class="list-unstyled mt-3 mb-4">
+              <li v-show="board.id == 0">Shots fired: {{ game.boards[1].hits.length }}</li>
+              <li v-show="board.id == 1">Shots fired: {{ game.boards[0].hits.length }}</li>
+              <li v-show="board.id == 0">Boats Sunk: {{ game.boards[1].sunk_ships }}</li>
+              <li v-show="board.id == 1">Boats Sunk: {{ game.boards[0].sunk_ships }}</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -66,4 +125,3 @@
     <script src="main.js"></script>
   </body>
 </html>
-

@@ -3,19 +3,21 @@ function new_board () {
   //This function is to create a new board.
   board = [];
   for (i=0; i<64; i++) {
-    board.push({"position": i, "value": "X", 'clicked': false,
+    board.push({"position": i, 'clicked': false,
                 'color': 'transparent', 'backcolor': 'grey'});
   }
   return board;
 }
 
 function new_game () {
-  game = {'started_game': false,
-          'game_ended': false,
+  game = {'initiated': false,
+          'ended': false,
           'attacker': 0,
           'boards': [
-            {'id': 0, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [], "turn_taken": false},
-            {'id': 1, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [], "turn_taken": false},
+            {'id': 0, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [],
+             "sunk_ships": 0, "turn_taken": false},
+            {'id': 1, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [],
+             "sunk_ships": 0, "turn_taken": false},
           ],
           'display_boards': false,
           'news': "",
@@ -56,19 +58,6 @@ function get_line (length, dir, init) {
 
 
 // *** Components  ***
-Vue.component("lobby", {
-  props: ['started_game'],
-  template: `<div class="lobby">
-               <button v-if="started_game" @click="start_game" type="button" class="btn btn-danger">Reset Game</button>
-               <button v-else @click="start_game" type="button" class="btn btn-primary">Start Game</button>
-             </div>`,
-  methods: {
-    start_game: function () {
-      this.$emit("start_game")
-    },
-  },
-})
-
 Vue.component("board", {
   props: ["b_data", "b_id", "attacker", "turn_taken"],
   template: `<div class="col-4 grid-container">
@@ -78,7 +67,6 @@ Vue.component("board", {
                     v-bind:attacker="attacker"
                     v-bind:turn_taken="turn_taken"
                     v-bind:position="box.position"
-                    v-bind:value="box.value"
                     v-bind:clicked="box.clicked"
                     v-bind:backcolor="box.backcolor"
                     v-bind:color="box.color"
@@ -95,12 +83,12 @@ Vue.component("board", {
 })
 
 Vue.component("box", {
-  props: ["b_id", "attacker", "turn_taken", "position", "value", "clicked", "backcolor", "color"],
+  props: ["b_id", "attacker", "turn_taken", "position", "clicked", "backcolor", "color"],
   template: `<div v-on:click="click_event"
                   class="grid-item"
                   :style="{ backgroundColor: backcolor, color: color}"
                   >
-              {{ value }}
+               X
              </div>`,
 
   methods: {
@@ -124,12 +112,15 @@ var battleship_app = new Vue({
   },
   methods: {
     reset_game: function () {
-      this.game.started_game = this.game.started_game == false ? true : false
+      this.game.initiated = this.game.initiated == false ? true : false
+      this.game.ended = false
       this.game.news = "Player1 attacking"
       this.game.display_boards = true
       this.game.attacker = 0;
       this.game.boards.forEach(board => {
         board.all_ships = []
+        board.hits = []
+        board.sunk_ships = 0
         board.turn_taken = false
         board.ships = [{'name': 'boat_1', 'positions': this.set_feasible_line(board, 4),
                         'destroyed': false},
@@ -142,7 +133,6 @@ var battleship_app = new Vue({
                       ]
 
         board.data.forEach(box => {
-          box.value = "X"
           box.clicked = false
           box.color = "transparent"
           box.backcolor = "grey"
@@ -290,15 +280,16 @@ var battleship_app = new Vue({
         this.game.news = "Miss!"
       }
 
-      sunk_ships = 0
+      board.sunk_ships = 0
+
       for (i=0; i<board.ships.length; i++) {
         if (board.ships[i].destroyed) {
-          sunk_ships += 1
+          board.sunk_ships += 1
         }
       }
 
-      if (sunk_ships == 4) {
-        this.game.game_ended = true
+      if (board.sunk_ships == 4) {
+        this.game.ended = true
       }
 
       this.box_color(board, box)
