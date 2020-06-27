@@ -58,9 +58,9 @@ function get_line (length, dir, init) {
 // *** Components  ***
 Vue.component("lobby", {
   props: ['started_game'],
-  template: `<div class="lobby" style="margin-bottom: 5px;">
-               <div v-if="started_game" @click="start_game">Reset Game</div>
-               <div v-else @click="start_game">Start Game</div>
+  template: `<div class="lobby">
+               <button v-if="started_game" @click="start_game" type="button" class="btn btn-danger">Reset Game</button>
+               <button v-else @click="start_game" type="button" class="btn btn-primary">Start Game</button>
              </div>`,
   methods: {
     start_game: function () {
@@ -71,7 +71,7 @@ Vue.component("lobby", {
 
 Vue.component("board", {
   props: ["b_data", "b_id", "attacker", "turn_taken"],
-  template: `<div class="grid-container" style="margin: 5px;">
+  template: `<div class="col-4 grid-container">
                <box v-for="box in b_data"
                     :key="box.position"
                     v-bind:b_id="b_id"

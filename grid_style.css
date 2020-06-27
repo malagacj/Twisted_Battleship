@@ -1,33 +1,6 @@
-html {
-  height: 100%;
-}
-body {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-#battleship {
-  width: 80%;
-  height: 60%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background-color: pink;
-}
-
-.container {
-  display: flex;
-  flex-direction: column;
-}
-
 .grid-container {
   display: grid;
   grid-template-columns: auto auto auto auto auto auto auto auto;
-  background-color: #2196F3;
   margin: 5px 15px 5px 15px;
 }
 
@@ -35,5 +8,5 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.8);
     text-align: center;
     font-size: 30px;
+    min-width: 40px;
 }
-
