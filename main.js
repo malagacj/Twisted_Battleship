@@ -1,187 +1,339 @@
+// *** Functions to create General Game related objects  ***
 function new_board () {
+  //This function is to create a new board.
   board = [];
   for (i=0; i<64; i++) {
-    board.push({"position": i, "value": "Miss", 'backcolor': 'grey', 'color': 'transparent'});
+    board.push({"position": i, "value": "X", 'clicked': false,
+                'color': 'transparent', 'backcolor': 'grey'});
   }
   return board;
 }
 
-Vue.component("board", {
-  props: ["b_data", "b_id"],
-  template: `<div class="grid-container" style="margin-bottom: 5px;">
-              <box v-for="box in b_data"
-                   :key="box.position"
-                   v-bind:position="box.position"
-                   v-bind:value="box.value"
-                   v-bind:backcolor="box.backcolor"
-                   v-bind:color="box.color"
-                   v-on:clicked="listened"
+function new_game () {
+  game = {'started_game': false,
+          'game_ended': false,
+          'attacker': 0,
+          'boards': [
+            {'id': 0, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [], "turn_taken": false},
+            {'id': 1, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [], "turn_taken": false},
+          ],
+          'display_boards': false,
+          'news': "",
+          }
+  return game
+}
 
-                   >
-              </box>
+function get_game () {
+  if (sessionStorage.getItem('game') != null) {
+    game = JSON.parse(sessionStorage.getItem('game'));
+  }
+  else {
+    game = new_game()
+  }
+  return game
+}
+
+
+// *** Helper functions (To not saturate the app methods)  ***
+function get_line (length, dir, init) {
+  if (!init) {
+    init = Math.floor(Math.random() * 64);
+  }
+
+  var line = [];
+  if (dir == 'horz') {
+    for (i=0; i < length; i++) {
+      line.push(init + i)
+    }
+  }
+  else {
+    for (i=0; i < length; i++) {
+      line.push(init + i*8)
+    }
+  }
+  return line
+}
+
+
+// *** Components  ***
+Vue.component("lobby", {
+  props: ['started_game'],
+  template: `<div class="lobby" style="margin-bottom: 5px;">
+               <div v-if="started_game" @click="start_game">Reset Game</div>
+               <div v-else @click="start_game">Start Game</div>
              </div>`,
   methods: {
-    listened: function (box_position) {
-      this.$emit("clicked", this.b_id, box_position)
+    start_game: function () {
+      this.$emit("start_game")
+    },
+  },
+})
+
+Vue.component("board", {
+  props: ["b_data", "b_id", "attacker", "turn_taken"],
+  template: `<div class="grid-container" style="margin: 5px;">
+               <box v-for="box in b_data"
+                    :key="box.position"
+                    v-bind:b_id="b_id"
+                    v-bind:attacker="attacker"
+                    v-bind:turn_taken="turn_taken"
+                    v-bind:position="box.position"
+                    v-bind:value="box.value"
+                    v-bind:clicked="box.clicked"
+                    v-bind:backcolor="box.backcolor"
+                    v-bind:color="box.color"
+                    v-on:click_event="click_event"
+                    >
+               </box>
+             </div>`,
+  methods: {
+    click_event: function (box_position) {
+      this.$emit("click_event", this.b_id, box_position)
     },
   },
 
 })
 
 Vue.component("box", {
-  props: ["position", "value", "backcolor", "color"],
-  template: `<div v-on:click="clicky"
+  props: ["b_id", "attacker", "turn_taken", "position", "value", "clicked", "backcolor", "color"],
+  template: `<div v-on:click="click_event"
                   class="grid-item"
                   :style="{ backgroundColor: backcolor, color: color}"
                   >
               {{ value }}
              </div>`,
+
   methods: {
-    clicky: function () {
-      this.$emit('clicked', this.position)
+    click_event: function () {
+      if (!this.turn_taken) {
+        if (this.b_id != this.attacker) {
+          if (!this.clicked) {
+            this.$emit('click_event', this.position)
+          }
+        }
+      }
     },
   },
 })
 
-
+// *** Main Application  ***
 var battleship_app = new Vue({
   el: "#battleship",
   data: {
-    "boards": [{'board_id': 0, 'board_data': new_board(), 'ships': []},
-               {'board_id': 1, 'board_data': new_board(), 'ships': []},
-              ],
+    "game": get_game(),
   },
   methods: {
-    get_line: function (initial_point, direction='horz', length){
-      var line = [];
-      if (direction == 'horz') {
-        for (i=0; i < length; i++) {
-          line.push(initial_point + i)
+    reset_game: function () {
+      this.game.started_game = this.game.started_game == false ? true : false
+      this.game.news = "Player1 attacking"
+      this.game.display_boards = true
+      this.game.attacker = 0;
+      this.game.boards.forEach(board => {
+        board.all_ships = []
+        board.turn_taken = false
+        board.ships = [{'name': 'boat_1', 'positions': this.set_feasible_line(board, 4),
+                        'destroyed': false},
+                       {'name': 'boat_2', 'positions': this.set_feasible_line(board, 4),
+                        'destroyed': false},
+                       {'name': 'boat_L', 'positions': this.set_feasible_l(board),
+                        'destroyed': false},
+                       {'name': 'boat_Box', 'positions': this.set_feasible_box(board),
+                        'destroyed': false},
+                      ]
+
+        board.data.forEach(box => {
+          box.value = "X"
+          box.clicked = false
+          box.color = "transparent"
+          box.backcolor = "grey"
+          this.box_color(board, box)
+        })
+
+      })
+
+      // Save changes
+      sessionStorage.setItem('game', JSON.stringify(this.game))
+    },
+
+    is_drawable: function (board, line, dir) {
+      // Check for overlapping and position out of range
+      for (i=0; i<line.length; i++) {
+        if (board.all_ships.includes(line[i])) {
+          return false
+        }
+        else if (line[i] >=64 ){
+          return false
         }
       }
-      else {
-        for (i=0; i < length; i++) {
-          line.push(initial_point + i*8)
-        }
+
+      // Check if line is horizontally feasible (Line in the same row)
+      if (dir == 'horz') {
+        return line[line.length -1]%8 > line[0]%8
       }
+
+      return true
+    },
+
+    set_feasible_line: function (board, length) {
+      drawable = false
+      dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? 'horz': 'vert'
+
+      while (!drawable) {
+        line = get_line(4, dir)
+        drawable = this.is_drawable(board, line, dir)
+      }
+      board.all_ships = board.all_ships.concat(line)
       return line
     },
 
-    is_drawable: function(board, lines) {
-      // Check if line is horizontally feasible (Line in the same row)
-      lines.forEach(line => {
-        line.forEach(position => {
-          drawable = (line[line.length - 1]%8 > line[0]%8) ? true : false;
-          if (!drawable) {
-            return false;
-          }
-        })
-      })
-
-      // Check if line overlaps an existing line
-      lines.forEach(line => {
-        line.forEach(position => {
-          if (board.ships.includes(position)) {
-            return false;
-          }
-        })
-      })
-
-      return true;
-    },
-
-    set_line: function(board, length) {
-      ini_box = Math.floor(Math.random() * 64);
-      line1 = this.get_line(ini_box, 'horz', 4)
-      line2 = this.get_line(ini_box, 'vert', 4)
-
-      aaa = this.is_drawable(board, [[1,2,3], [4, 5, 6], [6,7,8]])
-      console.log(aaa)
-      drawable = false;
+    set_feasible_l: function (board) {
+      drawable = false
+      main_dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? 'horz': 'vert'
+      secn_dir = main_dir == 'horz' ? 'vert' : 'horz'
 
       while (!drawable) {
-        ini_box = Math.floor(Math.random() * 64);
-        fin_box = ini_box + length -1;
-        drawable = (fin_box%8 > ini_box%8) ? true : false;
+        line1 = get_line(3, main_dir)
+        line2= get_line(2, secn_dir, line1[0])
 
-        if (!drawable) {
-          continue;
+        draw_line1 = this.is_drawable(board, line1, main_dir)
+        draw_line2 = this.is_drawable(board, line2, secn_dir)
+        if (draw_line1 && draw_line2) {
+          drawable = true
         }
+      }
+      concat = line1.concat(line2)
+      set = new Set(concat)
+      ship = Array.from(set)
 
-        var line = [];
-        for (i=ini_box; i<=fin_box; i++) {
-          if (!board.ships.includes(i)) { 
-            line.push(i)
+      board.all_ships = board.all_ships.concat(ship)
+      return ship
+    },
+
+    set_feasible_box: function (board) {
+      drawable = false
+      while (!drawable) {
+        line1 = get_line(2, 'vert')
+        line2= get_line(2, 'vert', line1[0]+1)
+        horz = [line1[0], line2[0]]
+
+        draw_line1 = this.is_drawable(board, line1, 'vert')
+        draw_line2 = this.is_drawable(board, line2, 'vert')
+        draw_horz = this.is_drawable(board, horz, 'horz')
+
+        if (draw_line1 && draw_line2 && draw_horz) {
+          drawable = true
+        }
+      }
+      concat = line1.concat(line2)
+      set = new Set(concat)
+      ship = Array.from(set)
+
+      board.all_ships = board.all_ships.concat(ship)
+      return ship
+    },
+
+    box_color: function (board, box) {
+      if (box.clicked) {
+        box.color = 'black'
+      }
+
+      if (this.game.attacker == board.id) {
+        if (board.all_ships.includes(box.position)) {
+          box.backcolor = '#0cd840' // green
+        }
+        else{
+          box.backcolor = '#2196F3' // blue
+        }
+      }
+      else {
+        if (box.clicked) {
+          if (board.all_ships.includes(box.position)) {
+            box.backcolor = '#f0200c' // red
+          }
+          else{
+            box.backcolor = '#2196F3' // blue
           }
         }
-
-        if (line.length == length) {
-          board.ships = board.ships.concat(line)
-          board.ships.forEach(ship => {
-            board.board_data[ship].value = 'Ship'
-          })
-          drawable = true;
+        else {
+          box.backcolor = 'grey' // grey
         }
       }
     },
 
     clicked_box: function (board_id, box_position) {
-      current_board = this.boards[board_id]
-      current_box = current_board.board_data[box_position]
+      board = this.game.boards[board_id]
+      box = board.data[box_position]
 
-      current_box.color = 'black'
-      current_box.backcolor = current_box.value == 'Miss' ? 'rgba(255, 255, 255, 0.8)' : 'red'
+      board.turn_taken = true
+      box.clicked = true
 
-      if (current_box.value == 'Ship' && !current_board.ships.includes(box_position)) {
-        current_board.ships.push(box_position)
+      board.hits.push(box_position)
+      if (board.all_ships.includes(box_position)) {
+        this.game.news = "Hit!"
+
+        board.ships.forEach(ship => {
+          if (ship.positions.includes(box_position)) {
+            fully_destroyed = true
+            for (i=0; i<ship.positions.length; i++) {
+              if (!board.hits.includes(ship.positions[i])) {
+                fully_destroyed = false
+              }
+            }
+            if (fully_destroyed) {
+              this.game.news = this.game.news + ' ' + ship.name + ' has been destroyed'
+              ship.destroyed = true
+            }
+          }
+        })
       }
+      else {
+        this.game.news = "Miss!"
+      }
+
+      sunk_ships = 0
+      for (i=0; i<board.ships.length; i++) {
+        if (board.ships[i].destroyed) {
+          sunk_ships += 1
+        }
+      }
+
+      if (sunk_ships == 4) {
+        this.game.game_ended = true
+      }
+
+      this.box_color(board, box)
+
+      // Save changes
+      sessionStorage.setItem('game', JSON.stringify(this.game))
     },
 
-    reset_boards: function () {
-      this.boards.forEach(board => {
-        board.ships = []
-        board.board_data.forEach(box => {
-          box.value = "Miss"
-          box.backcolor = "grey"
-          box.color = "transparent"
+    transition: function () {
+      this.game.display_boards = false
+      this.game.news = ''
+
+      // Save changes
+      sessionStorage.setItem('game', JSON.stringify(this.game))
+    },
+
+    show_boards: function () {
+      this.game.boards[this.game.attacker].turn_taken = false
+      this.game.attacker = this.game.attacker == 0 ? 1 : 0
+      this.game.display_boards = true
+      this.game.boards.forEach(board => {
+        board.data.forEach(box => {
+          this.box_color(board, box)
         })
-       this.set_line(board, 4)
-       this.set_line(board, 4)
       })
+
+      if (this.game.attacker == 0) {
+        this.game.news = 'Player1 attacking'
+      }
+      else {
+        this.game.news = 'Player2 attacking'
+      }
+
+      // Save changes
+      sessionStorage.setItem('game', JSON.stringify(this.game))
     },
   },
 })
-
-function set_line (set_boxes) {
-  //Fix arrays
-  drawable = false;
-  counter = 1
-
-  while (!drawable) {
-    counter += 1;
-    ini_box = Math.floor(Math.random() * 64);
-    fin_box = ini_box + 3;
-    drawable = (fin_box%8 > ini_box%8) ? true : false;
-
-    if (!drawable) {
-      continue;
-    }
-
-    var line = [];
-    for (i=ini_box; i<=fin_box; i++) {
-      if (!set_boxes.includes(i)) { 
-        line.push(i)
-      }
-    }
-  return line
-  
-  }
-
-  //To simplify we will always draw lines left and down
-
-  for (i=ini_box; i<=fin_box; i++) {
-  
-  }
-  return "It is drawable"
-}
-

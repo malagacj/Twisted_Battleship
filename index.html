@@ -1,0 +1,60 @@
+<html lang=en>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="grid_style.css">
+    <title>Battleship with a twist</title>
+  </head>
+  <body>
+    <div id="battleship">
+      <div class="container">
+        <lobby @start_game="reset_game"
+               v-bind:started_game="game.started_game">
+        </lobby>
+      </div>
+
+
+      <div class="container" v-show="game.started_game">
+        <div v-show="game.display_boards">
+          <div v-show="game.attacker == 0" style="display: flex; justify-content: space-between;">
+            <p>{{ game.news }}</p>
+            <button @click="transition">Player2's turn</button>
+          </div>
+          <div v-show="game.attacker == 1" style="display: flex; justify-content: space-between;">
+            <p>{{ game.news }}</p>
+            <button @click="transition">Player1's turn</button>
+          </div>
+        </div>
+
+        <div v-show="!game.display_boards">
+          <div style="display: flex;">
+            <button @click="show_boards">Continue</button>
+          </div>
+        </div>
+
+        <div style="display: flex">
+          <board v-for="board in game.boards"
+                 v-show="game.display_boards"
+                 :key=board.id
+                 v-bind:b_id="board.id"
+                 v-bind:b_data="board.data"
+                 v-bind:attacker="game.attacker"
+                 v-bind:turn_taken="board.turn_taken"
+                 v-bind:display_boards="game.display_boards"
+                 @click_event="clicked_box"
+          >
+          </board>
+        </div>
+      </div>
+
+      <div class="container" v-show="game.game_ended">
+        <h2>Player1</h2>
+        <h2>Player2</h2>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
+
