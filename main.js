@@ -60,7 +60,7 @@ function get_line (length, dir, init) {
 // *** Components  ***
 Vue.component("board", {
   props: ["b_data", "b_id", "attacker", "turn_taken"],
-  template: `<div class="col-4 grid-container">
+  template: `<div class="grid-container">
                <box v-for="box in b_data"
                     :key="box.position"
                     v-bind:b_id="b_id"
