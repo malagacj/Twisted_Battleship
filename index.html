@@ -36,38 +36,40 @@
     <div class="container" id="battleship">
       <div class="container text-center">
         <p>
-          <button v-if="game.initiated" @click="reset_game" type="button" class="btn btn-danger">
-            Reset Game
-          </button>
-
-          <button v-else @click="reset_game" type="button" class="btn btn-primary">
+          <button v-show="game.state=='lobby'" @click="start_game" type="button"
+                  class="btn btn-primary">
             Start Game
           </button>
 
-          <button v-show="game.initiated && !game.display_boards"
-                  @click="show_boards"
-                  type="button"
-                  class="btn btn-success">
-            Continue
+          <button v-show="game.state!='lobby'" @click="lobby" type="button"
+                  class="btn btn-danger">
+            Reset Game
           </button>
 
           <button @click="transition"
-            v-show=" game.attacker == 0 && game.initiated && !game.ended && game.display_boards"
+            v-show=" game.attacker == 0 && game.state == 'game'"
             type="button"
             class="btn btn-primary">
             Player2's turn next
           </button>
 
           <button @click="transition"
-            v-show=" game.attacker == 1 && game.initiated && !game.ended && game.display_boards"
+            v-show=" game.attacker == 1 && game.state == 'game'"
             type="button"
             class="btn btn-primary">
             Player1's turn next
           </button>
+
+          <button v-show="game.state == 'transition'"
+                  @click="show_boards"
+                  type="button"
+                  class="btn btn-success">
+            Continue
+          </button>
         </p>
       </div>
 
-      <div class="container text-center" v-show="game.initiated && !game.ended && game.display_boards">
+      <div class="container text-center" v-show="game.state == 'game'">
         <p>
           <div class="alert alert-primary" role="alert">{{ game.news }}</div>
         </p>
@@ -76,7 +78,7 @@
 
       <div class="card-deck mb-3 text-center">
         <div v-for="board in game.boards"
-             v-show="game.initiated && !game.ended && game.display_boards"
+             v-show="game.state == 'game'"
              class="card mb-4 shadow-sm">
           <div class="card-header">
             <h4 v-show="board.id == 0" class="my-0 font-weight-normal">Player 1</h4>
@@ -84,11 +86,8 @@
           </div>
           <div class="card-body">
             <board :key=board.id
-                   v-bind:b_id="board.id"
-                   v-bind:b_data="board.data"
-                   v-bind:attacker="game.attacker"
-                   v-bind:turn_taken="board.turn_taken"
-                   v-bind:display_boards="game.display_boards"
+                   v-bind:pk="board.id"
+                   v-bind:boxes="board.boxes"
                    @click_event="clicked_box"
               >
             </board>
@@ -98,7 +97,7 @@
 
       <div class="card-deck mb-3 text-center">
         <div v-for="board in game.boards"
-             v-show="game.ended"
+             v-show="game.state == 'ended'"
              class="card mb-4 shadow-sm">
           <div class="card-header">
             <h4 v-show="board.id == 0" class="my-0 font-weight-normal">Player 1</h4>

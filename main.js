@@ -1,49 +1,68 @@
 // *** Functions to create General Game related objects  ***
-function new_board () {
-  //This function is to create a new board.
-  board = [];
-  for (i=0; i<64; i++) {
-    board.push({"position": i, 'clicked': false,
-                'color': 'transparent', 'backcolor': 'grey'});
-  }
-  return board;
-}
-
-function new_game () {
-  game = {'initiated': false,
-          'ended': false,
-          'attacker': 0,
-          'boards': [
-            {'id': 0, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [],
-             "sunk_ships": 0, "turn_taken": false},
-            {'id': 1, 'data': new_board(), 'ships': [], 'all_ships': [], "hits": [],
-             "sunk_ships": 0, "turn_taken": false},
-          ],
-          'display_boards': false,
-          'news': "",
-          }
-  return game
-}
-
-function get_game () {
-  if (sessionStorage.getItem('game') != null) {
-    game = JSON.parse(sessionStorage.getItem('game'));
+function new_boxes (boxes) {
+  // Resets all boxes, weather they have been created already or not
+  if (boxes) {
+    boxes.forEach(box => {
+      box.clicked = false
+      box.color = "transparent"
+      box.backcolor = "grey"
+    })
   }
   else {
-    game = new_game()
+    boxes = [];
+    for (i=0; i<64; i++) {
+      boxes.push({"position": i, "clicked": false,
+                  "color": "transparent", "backcolor": "grey"});
+    }
   }
-  return game
+  return boxes;
+}
+
+function new_game (game) {
+  // Resets game, weather it has been created already or not
+  // It loads previous game state if page is refreshed
+  if (game) {
+    game.state = "lobby"
+    game.attacker = 0
+    game.news = ""
+    game.boards.forEach(board => {
+      board.ships = []
+      board.all_ships = []
+      board.hits = []
+      board.sunk_ships = 0
+      board.turn_taken = false
+      new_boxes(board.boxes)
+    })
+  }
+
+  else if (sessionStorage.getItem("game") != null) {
+    return JSON.parse(sessionStorage.getItem("game"));
+  }
+
+  else {
+    game = {"state": "lobby",
+            "attacker": 0,
+            "news": "",
+            "boards": [
+              {"id": 0, "boxes": new_boxes(), "ships": [], "all_ships": [], "hits": [],
+               "sunk_ships": 0, "turn_taken": false},
+              {"id": 1, "boxes": new_boxes(), "ships": [], "all_ships": [], "hits": [],
+               "sunk_ships": 0, "turn_taken": false},
+            ],
+            }
+    return game
+  }
 }
 
 
 // *** Helper functions (To not saturate the app methods)  ***
 function get_line (length, dir, init) {
-  if (!init) {
-    init = Math.floor(Math.random() * 64);
-  }
+  // returns a vertical or horizontal line with an specific length
+  // initial point may be passed
+  init = typeof init == 'undefined' ? Math.floor(Math.random() * 64) : init
 
   var line = [];
-  if (dir == 'horz') {
+  if (dir == "horz") {
     for (i=0; i < length; i++) {
       line.push(init + i)
     }
@@ -58,16 +77,14 @@ function get_line (length, dir, init) {
 
 
 // *** Components  ***
+
 Vue.component("board", {
-  props: ["b_data", "b_id", "attacker", "turn_taken"],
+  // Represents a player's board
+  props: ["boxes", "pk"],
   template: `<div class="grid-container">
-               <box v-for="box in b_data"
+               <box v-for="box in boxes"
                     :key="box.position"
-                    v-bind:b_id="b_id"
-                    v-bind:attacker="attacker"
-                    v-bind:turn_taken="turn_taken"
                     v-bind:position="box.position"
-                    v-bind:clicked="box.clicked"
                     v-bind:backcolor="box.backcolor"
                     v-bind:color="box.color"
                     v-on:click_event="click_event"
@@ -76,14 +93,15 @@ Vue.component("board", {
              </div>`,
   methods: {
     click_event: function (box_position) {
-      this.$emit("click_event", this.b_id, box_position)
+      this.$emit("click_event", this.pk, box_position)
     },
   },
 
 })
 
 Vue.component("box", {
-  props: ["b_id", "attacker", "turn_taken", "position", "clicked", "backcolor", "color"],
+  // Represents a box within a board
+  props: ["position", "backcolor", "color"],
   template: `<div v-on:click="click_event"
                   class="grid-item"
                   :style="{ backgroundColor: backcolor, color: color}"
@@ -93,59 +111,71 @@ Vue.component("box", {
 
   methods: {
     click_event: function () {
-      if (!this.turn_taken) {
-        if (this.b_id != this.attacker) {
-          if (!this.clicked) {
-            this.$emit('click_event', this.position)
-          }
-        }
-      }
+      this.$emit("click_event", this.position)
     },
   },
 })
+
 
 // *** Main Application  ***
 var battleship_app = new Vue({
   el: "#battleship",
   data: {
-    "game": get_game(),
+    "game": new_game(),
   },
   methods: {
-    reset_game: function () {
-      this.game.initiated = this.game.initiated == false ? true : false
-      this.game.ended = false
+    lobby: function () {
+      // Initial state of the game, game is completely reset
+      new_game(this.game)
+      
+      // Save state
+      sessionStorage.setItem("game", JSON.stringify(this.game))
+    },
+
+    start_game: function () {
+      // Initiating game, only called the first time the boards are layed out
+      this.game.state = "game"
       this.game.news = "Player1 attacking"
-      this.game.display_boards = true
-      this.game.attacker = 0;
       this.game.boards.forEach(board => {
-        board.all_ships = []
-        board.hits = []
-        board.sunk_ships = 0
-        board.turn_taken = false
-        board.ships = [{'name': 'boat_1', 'positions': this.set_feasible_line(board, 4),
-                        'destroyed': false},
-                       {'name': 'boat_2', 'positions': this.set_feasible_line(board, 4),
-                        'destroyed': false},
-                       {'name': 'boat_L', 'positions': this.set_feasible_l(board),
-                        'destroyed': false},
-                       {'name': 'boat_Box', 'positions': this.set_feasible_box(board),
-                        'destroyed': false},
+        board.ships = [{"name": "boat_1", "positions": this.set_feasible_line(board, 4),
+                        "destroyed": false},
+                       {"name": "boat_2", "positions": this.set_feasible_line(board, 4),
+                        "destroyed": false},
+                       {"name": "boat_L", "positions": this.set_feasible_l(board),
+                        "destroyed": false},
+                       {"name": "boat_Box", "positions": this.set_feasible_box(board),
+                        "destroyed": false},
                       ]
 
-        board.data.forEach(box => {
-          box.clicked = false
-          box.color = "transparent"
-          box.backcolor = "grey"
-          this.box_color(board, box)
+        board.boxes.forEach(box => {
+          this.set_box_color(board, box)
+        })
+
+        board.ships.forEach(ship => {
+          if (ship.positions.length != 4) {
+            console.log('Something is wrong')
+            console.log(ship)
+          }
         })
 
       })
 
+      // Save state
+      sessionStorage.setItem("game", JSON.stringify(this.game))
+    },
+
+    transition: function () {
+      // Transition between one player to the next
+      this.game.state = "transition"
+      this.game.news = ""
+
       // Save changes
-      sessionStorage.setItem('game', JSON.stringify(this.game))
+      sessionStorage.setItem("game", JSON.stringify(this.game))
     },
 
     is_drawable: function (board, line, dir) {
+      // Checks weather a line can be drawn on a board
+
       // Check for overlapping and position out of range
       for (i=0; i<line.length; i++) {
         if (board.all_ships.includes(line[i])) {
@@ -157,7 +187,7 @@ var battleship_app = new Vue({
       }
 
       // Check if line is horizontally feasible (Line in the same row)
-      if (dir == 'horz') {
+      if (dir == "horz") {
         return line[line.length -1]%8 > line[0]%8
       }
 
@@ -165,8 +195,10 @@ var battleship_app = new Vue({
     },
 
     set_feasible_line: function (board, length) {
+      // sets a line shaped ship on the board
+
       drawable = false
-      dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? 'horz': 'vert'
+      dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? "horz": "vert"
 
       while (!drawable) {
         line = get_line(4, dir)
@@ -177,9 +209,11 @@ var battleship_app = new Vue({
     },
 
     set_feasible_l: function (board) {
+      // sets an L shaped ship on the board
+
       drawable = false
-      main_dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? 'horz': 'vert'
-      secn_dir = main_dir == 'horz' ? 'vert' : 'horz'
+      main_dir = (Math.floor(Math.random()*2 + 1) % 2) == 0 ? "horz": "vert"
+      secn_dir = main_dir == "horz" ? "vert" : "horz"
 
       while (!drawable) {
         line1 = get_line(3, main_dir)
@@ -200,15 +234,17 @@ var battleship_app = new Vue({
     },
 
     set_feasible_box: function (board) {
+      // sets an square shaped ship on the board
+
       drawable = false
       while (!drawable) {
-        line1 = get_line(2, 'vert')
-        line2= get_line(2, 'vert', line1[0]+1)
+        line1 = get_line(2, "vert")
+        line2= get_line(2, "vert", line1[0]+1)
         horz = [line1[0], line2[0]]
 
-        draw_line1 = this.is_drawable(board, line1, 'vert')
-        draw_line2 = this.is_drawable(board, line2, 'vert')
-        draw_horz = this.is_drawable(board, horz, 'horz')
+        draw_line1 = this.is_drawable(board, line1, "vert")
+        draw_line2 = this.is_drawable(board, line2, "vert")
+        draw_horz = this.is_drawable(board, horz, "horz")
 
         if (draw_line1 && draw_line2 && draw_horz) {
           drawable = true
@@ -222,37 +258,36 @@ var battleship_app = new Vue({
       return ship
     },
 
-    box_color: function (board, box) {
+    set_box_color: function (board, box) {
+      // sets a box color
       if (box.clicked) {
-        box.color = 'black'
+        box.color = "black"
       }
 
       if (this.game.attacker == board.id) {
-        if (board.all_ships.includes(box.position)) {
-          box.backcolor = '#0cd840' // green
-        }
-        else{
-          box.backcolor = '#2196F3' // blue
-        }
+        // green : blue
+        box.backcolor = board.all_ships.includes(box.position) ? "#0cd840" : "#2196F3"
       }
       else {
         if (box.clicked) {
-          if (board.all_ships.includes(box.position)) {
-            box.backcolor = '#f0200c' // red
-          }
-          else{
-            box.backcolor = '#2196F3' // blue
-          }
+          // red : blue
+          box.backcolor = board.all_ships.includes(box.position) ? "#f0200c" : "#2196F3"
         }
         else {
-          box.backcolor = 'grey' // grey
+          box.backcolor = "grey" // grey
         }
       }
     },
 
     clicked_box: function (board_id, box_position) {
+      // Carries out all the steps after a box is clicked
+      
       board = this.game.boards[board_id]
-      box = board.data[box_position]
+      box = board.boxes[box_position]
+
+      if (board.turn_taken || board_id == this.game.attacker || box.clicked) {
+        return
+      }
 
       board.turn_taken = true
       box.clicked = true
@@ -270,7 +305,7 @@ var battleship_app = new Vue({
               }
             }
             if (fully_destroyed) {
-              this.game.news = this.game.news + ' ' + ship.name + ' has been destroyed'
+              this.game.news = this.game.news + " " + ship.name + " has been destroyed"
               ship.destroyed = true
             }
           }
@@ -288,43 +323,29 @@ var battleship_app = new Vue({
         }
       }
 
-      if (board.sunk_ships == 4) {
-        this.game.ended = true
-      }
-
-      this.box_color(board, box)
+      this.game.state = board.sunk_ships == 4 ? 'ended': this.game.state
+      this.set_box_color(board, box)
 
       // Save changes
-      sessionStorage.setItem('game', JSON.stringify(this.game))
-    },
-
-    transition: function () {
-      this.game.display_boards = false
-      this.game.news = ''
-
-      // Save changes
-      sessionStorage.setItem('game', JSON.stringify(this.game))
+      sessionStorage.setItem("game", JSON.stringify(this.game))
     },
 
     show_boards: function () {
+      // Displays boards (For initial State "method.start_game" is used)
+     
+      this.game.state = "game"
       this.game.boards[this.game.attacker].turn_taken = false
       this.game.attacker = this.game.attacker == 0 ? 1 : 0
-      this.game.display_boards = true
       this.game.boards.forEach(board => {
-        board.data.forEach(box => {
-          this.box_color(board, box)
+        board.boxes.forEach(box => {
+          this.set_box_color(board, box)
         })
       })
 
-      if (this.game.attacker == 0) {
-        this.game.news = 'Player1 attacking'
-      }
-      else {
-        this.game.news = 'Player2 attacking'
-      }
+      this.game.news = this.game.attacker == 0 ? "Player1 attacking" : "Player2 attacking"
 
       // Save changes
-      sessionStorage.setItem('game', JSON.stringify(this.game))
+      sessionStorage.setItem("game", JSON.stringify(this.game))
     },
   },
 })
